@@ -1,0 +1,166 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required) - Firebase Auth UID
+//   - displayName: string (required) - User's full name
+//   - email: string (required, email format) - User's email address
+//   - role: string (required, enum: ['admin', 'professor', 'pending']) - User's access level
+//   - photoURL: string (optional) - URL to user's profile picture
+//   - isBlocked: boolean (required) - Whether the user is barred from using the system
+//   - createdAt: timestamp (required) - When the account was created
+//
+// Collection: logs
+// Document ID: {logId}
+// Fields:
+//   - professorName: string (required)
+//   - professorEmail: string (required, email format)
+//   - professorUid: string (required)
+//   - campus: string (required)
+//   - roomNumber: string (required)
+//   - college: string (required)
+//   - program: string (required)
+//   - year: string (required)
+//   - section: string (required)
+//   - startTime: timestamp (required)
+//   - endTime: timestamp (optional)
+//   - durationMinutes: number (optional)
+//
+// Collection: rooms
+// Document ID: {roomId}
+// Fields:
+//   - roomNumber: string (required)
+//   - campus: string (optional)
+//   - college: string (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         ((request.auth.token.email == "alyssabernadette.tuliao@neu.edu.ph" || request.auth.token.email == "tuliaoalyssab@gmail.com" || request.auth.token.email == "jcesperanza@neu.edu.ph") && request.auth.token.email_verified == true));
+    }
+
+    function isBootstrapAdmin(email) {
+      return email == "alyssabernadette.tuliao@neu.edu.ph" || email == "tuliaoalyssab@gmail.com" || email == "jcesperanza@neu.edu.ph";
+    }
+    
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'professor', 'pending'] &&
+             data.isBlocked is bool;
+    }
+
+    function isValidLog(data) {
+      return data.professorName is string &&
+             isValidEmail(data.professorEmail) &&
+             data.professorId is string &&
+             data.roomNumber is string &&
+             data.startTime is timestamp;
+    }
+
+    function isValidRoom(data) {
+      return data.roomNumber is string && data.roomNumber.size() > 0;
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can read their own profile. Admins can read all.
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create their own profile as 'pending' (or 'admin' if they are the bootstrap admin)
+      // OR if they are in the pre_authorized collection with the requested role.
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (
+        request.resource.data.role == 'pending' || 
+        (request.resource.data.role == 'admin' && isBootstrapAdmin(request.auth.token.email)) ||
+        (exists(/databases/$(database)/documents/pre_authorized/$(request.auth.token.email.lower())) && 
+         get(/databases/$(database)/documents/pre_authorized/$(request.auth.token.email.lower())).data.role == request.resource.data.role)
+      );
+      
+      // Users can update their own profile but NOT their role or blocked status (unless admin)
+      // EXCEPT they can upgrade from 'pending' if they are now in the pre_authorized collection.
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
+                       (request.resource.data.role == resource.data.role || 
+                        (resource.data.role == 'pending' && 
+                         exists(/databases/$(database)/documents/pre_authorized/$(request.auth.token.email.lower())) && 
+                         get(/databases/$(database)/documents/pre_authorized/$(request.auth.token.email.lower())).data.role == request.resource.data.role)) && 
+                       request.resource.data.isBlocked == resource.data.isBlocked) || 
+                       (isAdmin() && (!isBootstrapAdmin(resource.data.email) || isOwner(userId)));
+
+      // Admins can delete anyone EXCEPT the bootstrap admin
+      allow delete: if isAdmin() && !isBootstrapAdmin(resource.data.email);
+    }
+
+    match /logs/{logId} {
+      // All authenticated users can read logs (needed for conflict checking)
+      allow read: if isAuthenticated();
+      
+      // Professors can create logs for themselves. Admins can create any.
+      allow create: if isAdmin() || (isAuthenticated() && isValidLog(request.resource.data) && request.resource.data.professorId == request.auth.uid);
+      
+      // Only admins can delete logs.
+      allow delete: if isAdmin();
+      
+      // Admins can update any log. 
+      // Professors can update their own, or others' logs ONLY to set endTime (Takeover/Auto-end).
+      allow update: if isAdmin() || 
+                    (isAuthenticated() && (
+                      (resource.data.professorId == request.auth.uid && isValidLog(request.resource.data)) ||
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endTime', 'autoEnded']))
+                    ));
+    }
+
+    match /rooms/{roomId} {
+      // All authenticated users can read rooms.
+      allow read: if isAuthenticated();
+      
+      // Only admins can manage rooms.
+      allow create, update: if isAdmin() && isValidRoom(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /pre_authorized/{email} {
+      // Admins can manage pre-authorized users.
+      allow read, write: if isAdmin();
+      
+      // Users can get their own pre-authorization during sign-up.
+      allow get: if isAuthenticated() && request.auth.token.email == email;
+    }
+  }
+}

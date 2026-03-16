@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user account information and roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "role": { "type": "string", "enum": ["admin", "professor", "pending"], "description": "User's access level" },
+        "photoURL": { "type": "string", "description": "URL to user's profile picture" },
+        "isBlocked": { "type": "boolean", "description": "Whether the user is barred from using the system" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the account was created" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "UsageLog": {
+      "title": "Usage Log",
+      "description": "Records of laboratory room usage.",
+      "type": "object",
+      "properties": {
+        "professorName": { "type": "string" },
+        "professorEmail": { "type": "string", "format": "email" },
+        "professorId": { "type": "string" },
+        "campus": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "college": { "type": "string" },
+        "program": { "type": "string" },
+        "year": { "type": "string" },
+        "section": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "durationMinutes": { "type": "number" }
+      },
+      "required": ["professorId", "roomNumber", "startTime"]
+    },
+    "LabRoom": {
+      "title": "Laboratory Room",
+      "description": "Registered laboratory rooms in the system.",
+      "type": "object",
+      "properties": {
+        "roomNumber": { "type": "string" },
+        "campus": { "type": "string" },
+        "college": { "type": "string" }
+      },
+      "required": ["roomNumber"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles indexed by UID"
+    },
+    "/logs/{logId}": {
+      "schema": "UsageLog",
+      "description": "Usage logs for all laboratory sessions"
+    },
+    "/rooms/{roomId}": {
+      "schema": "LabRoom",
+      "description": "Available laboratory rooms"
+    }
+  }
+}

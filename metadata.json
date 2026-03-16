@@ -1,0 +1,7 @@
+{
+  "name": "NEU Laboratory Usage Log",
+  "description": "A comprehensive laboratory usage tracking system for New Era University, featuring professor QR/Google login and admin analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

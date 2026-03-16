@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* html5-qrcode styling overrides */
+#qr-reader {
+  border: none !important;
+}
+
+#qr-reader__dashboard_section_csr button {
+  @apply px-4 py-2 bg-[#5A5A40] text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-[#4a4a35] transition-all cursor-pointer;
+}
+
+#qr-reader__dashboard_section_csr select {
+  @apply px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#5A5A40] mr-2;
+}
+
+#qr-reader__status_span {
+  @apply text-xs font-bold text-[#5A5A40] uppercase tracking-widest mt-2 block;
+}
+
+#qr-reader__camera_selection {
+  @apply mb-4;
+}
+
+#qr-reader__scan_region {
+  @apply flex justify-center items-center bg-gray-900 rounded-2xl overflow-hidden;
+}
+
+#qr-reader__scan_region video {
+  @apply max-w-full h-auto;
+  height: auto !important;
+}
+
+@layer base {
+  body {
+    @apply bg-[#f5f5f0] text-[#1a1a1a] antialiased;
+  }
+}
